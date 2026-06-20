@@ -670,10 +670,29 @@ function applyProxy() {
 async function saveAsImage() {
   const el = document.getElementById('summaryContent');
   const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#f0f4f8', useCORS: true });
+  const fileName = `${getTripName()}.jpg`;
+
+  canvas.toBlob(async (blob) => {
+    const file = new File([blob], fileName, { type: 'image/jpeg' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: getTripName() });
+      } catch (e) {
+        if (e.name !== 'AbortError') fallbackDownload(blob, fileName);
+      }
+    } else {
+      fallbackDownload(blob, fileName);
+    }
+  }, 'image/jpeg', 0.95);
+}
+
+function fallbackDownload(blob, fileName) {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.download = `${getTripName()}.jpg`;
-  link.href = canvas.toDataURL('image/jpeg', 0.95);
+  link.download = fileName;
+  link.href = url;
   link.click();
+  URL.revokeObjectURL(url);
 }
 
 async function saveAsPDF() {
