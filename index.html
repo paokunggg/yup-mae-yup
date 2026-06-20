@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>yup mae yup</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f8; color: #2d3748; min-height: 100vh; }
+
+  .header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white; padding: 20px 24px; text-align: center;
+  }
+  .header h1 { font-size: 1.6rem; font-weight: 700; }
+  .header p { opacity: 0.85; font-size: 0.9rem; margin-top: 4px; }
+
+  .steps {
+    display: flex; justify-content: center; gap: 0;
+    background: white; border-bottom: 2px solid #e2e8f0; overflow-x: auto;
+  }
+  .step-btn {
+    padding: 14px 20px; border: none; background: none; cursor: pointer;
+    font-size: 0.85rem; color: #718096; border-bottom: 3px solid transparent;
+    transition: all 0.2s; white-space: nowrap; font-weight: 500;
+  }
+  .step-btn.active { color: #667eea; border-bottom-color: #667eea; }
+  .step-btn.done { color: #48bb78; }
+  .step-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .container { max-width: 700px; margin: 0 auto; padding: 20px 16px; }
+
+  .card {
+    background: white; border-radius: 12px; padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 16px;
+  }
+  .card h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; color: #4a5568; }
+
+  .input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  input[type="text"], input[type="number"], select {
+    border: 2px solid #e2e8f0; border-radius: 8px; padding: 10px 14px;
+    font-size: 0.95rem; transition: border-color 0.2s; width: 100%;
+    font-family: inherit;
+  }
+  input:focus, select:focus { outline: none; border-color: #667eea; }
+
+  .btn {
+    padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer;
+    font-size: 0.9rem; font-weight: 600; transition: all 0.2s; white-space: nowrap;
+    font-family: inherit;
+  }
+  .btn-primary { background: #667eea; color: white; }
+  .btn-primary:hover { background: #5a67d8; }
+  .btn-danger { background: #fc8181; color: white; }
+  .btn-danger:hover { background: #f56565; }
+  .btn-success { background: #48bb78; color: white; }
+  .btn-success:hover { background: #38a169; }
+  .btn-outline { background: white; color: #667eea; border: 2px solid #667eea; }
+  .btn-outline:hover { background: #667eea; color: white; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .tag {
+    background: #ebf4ff; color: #3182ce; padding: 6px 12px; border-radius: 20px;
+    font-size: 0.85rem; display: flex; align-items: center; gap: 6px;
+  }
+  .tag .remove { cursor: pointer; font-weight: bold; color: #a0aec0; }
+  .tag .remove:hover { color: #e53e3e; }
+
+  .member-avatars { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .avatar {
+    width: 42px; height: 42px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-weight: 700; font-size: 1rem;
+    color: white; flex-shrink: 0;
+  }
+
+  .expense-item {
+    border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px;
+    margin-bottom: 10px; transition: box-shadow 0.2s;
+  }
+  .expense-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .expense-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .expense-name { font-weight: 600; font-size: 1rem; }
+  .expense-amount { font-weight: 700; color: #667eea; font-size: 1.1rem; white-space: nowrap; }
+  .expense-meta { font-size: 0.8rem; color: #718096; margin-top: 4px; }
+  .expense-split { font-size: 0.82rem; color: #4a5568; margin-top: 6px; }
+
+  .checkbox-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px; margin-top: 10px;
+  }
+  .checkbox-label {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    padding: 8px 10px; border-radius: 8px; border: 2px solid #e2e8f0;
+    transition: all 0.15s; font-size: 0.88rem;
+  }
+  .checkbox-label:hover { border-color: #667eea; background: #f7f8ff; }
+  .checkbox-label input { width: 16px; height: 16px; accent-color: #667eea; }
+  .checkbox-label.checked { border-color: #667eea; background: #ebf4ff; color: #3182ce; font-weight: 600; }
+
+  .select-all-row { display: flex; justify-content: flex-end; margin-top: 6px; }
+  .link-btn { background: none; border: none; color: #667eea; cursor: pointer; font-size: 0.82rem; text-decoration: underline; font-family: inherit; }
+
+  /* Summary */
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .summary-table th { background: #f7fafc; padding: 10px 14px; text-align: left; font-weight: 600; color: #4a5568; border-bottom: 2px solid #e2e8f0; }
+  .summary-table td { padding: 10px 14px; border-bottom: 1px solid #f0f4f8; }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .positive { color: #e53e3e; font-weight: 700; }
+  .negative { color: #38a169; font-weight: 700; }
+  .zero { color: #718096; }
+
+  .settlement-item {
+    display: flex; align-items: center; gap: 8px; padding: 10px 0;
+    border-bottom: 1px solid #f0f4f8; font-size: 0.9rem;
+  }
+  .settlement-item:last-child { border-bottom: none; }
+  .arrow { color: #667eea; font-size: 1.2rem; }
+  .settlement-amount { font-weight: 700; color: #667eea; margin-left: auto; }
+
+  .stat-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .stat-card {
+    flex: 1; min-width: 130px; background: linear-gradient(135deg, #667eea, #764ba2);
+    border-radius: 10px; padding: 14px; color: white; text-align: center;
+  }
+  .stat-card .label { font-size: 0.78rem; opacity: 0.85; }
+  .stat-card .value { font-size: 1.4rem; font-weight: 700; margin-top: 4px; }
+
+  .empty-state { text-align: center; padding: 30px; color: #a0aec0; }
+  .empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; }
+
+  .form-section { margin-bottom: 14px; }
+  .form-label { font-size: 0.85rem; font-weight: 600; color: #4a5568; margin-bottom: 6px; display: block; }
+
+  .nav-row { display: flex; justify-content: space-between; margin-top: 16px; }
+
+  .badge { display: inline-block; background: #667eea; color: white; border-radius: 20px; padding: 1px 8px; font-size: 0.75rem; margin-left: 6px; }
+
+  @media (max-width: 480px) {
+    .stat-card { min-width: 100px; }
+    .expense-header { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>💸 yup mae yup</h1>
+  <p>หารหมดไม่สนลูกใคร</p>
+</div>
+
+<div class="steps">
+  <button class="step-btn active" id="tab1" onclick="goStep(1)">① สมาชิก</button>
+  <button class="step-btn" id="tab2" onclick="goStep(2)" disabled>② รายการจ่าย</button>
+  <button class="step-btn" id="tab3" onclick="goStep(3)" disabled>③ สรุปยอด</button>
+</div>
+
+<div class="container">
+
+  <!-- STEP 1: Members -->
+  <div id="step1">
+    <div class="card">
+      <div class="form-section">
+        <label class="form-label">💸 ชื่อทริป</label>
+        <input type="text" id="tripName" placeholder="ยับกันที่ไหน" />
+      </div>
+    </div>
+    <div class="card">
+      <h2>👥 ใครยับ</h2>
+      <div class="input-row">
+        <input type="text" id="memberInput" placeholder="ใครยับบ้าง" onkeydown="if(event.key==='Enter') addMember()" />
+        <button class="btn btn-primary" onclick="addMember()">เพิ่ม</button>
+      </div>
+      <div id="memberList" class="tag-list"></div>
+    </div>
+    <div class="nav-row">
+      <div></div>
+      <button class="btn btn-primary" id="nextBtn1" onclick="goStep(2)" disabled>ถัดไป →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Expenses -->
+  <div id="step2" style="display:none">
+    <div class="card" id="formCard">
+      <h2>💸 เพิ่มรายการค่าใช้จ่าย</h2>
+
+      <div class="form-section">
+        <label class="form-label">ชื่อรายการ</label>
+        <input type="text" id="expName" placeholder="เช่น ค่าโรงแรม, ค่าอาหาร" />
+      </div>
+
+      <div class="form-section">
+        <label class="form-label">จำนวนเงิน (บาท)</label>
+        <input type="text" id="expAmount" placeholder="เช่น 500+300" oninput="previewCalc()" inputmode="decimal" />
+        <div id="calcPreview" style="font-size:0.82rem;color:#667eea;margin-top:5px;min-height:18px"></div>
+      </div>
+
+      <div class="form-section" id="payerSection">
+        <label class="form-label">ใครเป็นคนจ่าย?</label>
+        <select id="expPayer"></select>
+      </div>
+
+      <div class="form-section">
+        <label class="form-label">หารกับใครบ้าง?</label>
+        <div class="select-all-row">
+          <button class="link-btn" onclick="selectAll(true)">เลือกทั้งหมด</button>
+          &nbsp;|&nbsp;
+          <button class="link-btn" onclick="selectAll(false)">ล้าง</button>
+        </div>
+        <div class="checkbox-grid" id="splitCheckboxes"></div>
+      </div>
+
+      <div class="form-section" style="margin-top:4px">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;border:2px solid #e2e8f0;border-radius:8px;transition:all 0.15s" id="discountLabel">
+          <input type="checkbox" id="isDiscount" style="width:18px;height:18px;accent-color:#48bb78;flex-shrink:0" onchange="updateDiscountStyle()" />
+          <span>🏷️ รายการนี้เป็น <strong>ส่วนลด</strong> (หักออกจากยอด)</span>
+        </label>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" id="addExpBtn" onclick="addExpense()">+ เพิ่มรายการ</button>
+    </div>
+
+    <div id="expenseList"></div>
+
+    <div class="nav-row">
+      <button class="btn btn-outline" onclick="goStep(1)">← ย้อนกลับ</button>
+      <button class="btn btn-success" id="nextBtn2" onclick="goStep(3)" disabled>ดูสรุป ✓</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: Summary -->
+  <div id="step3" style="display:none">
+    <div id="summaryContent"></div>
+    <div class="nav-row">
+      <button class="btn btn-outline" onclick="goStep(2)">← แก้ไขรายการ</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="saveAsImage()">📷 บันทึกรูป</button>
+        <button class="btn btn-success" onclick="saveAsPDF()">📄 PDF</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const COLORS = ['#667eea','#f093fb','#4facfe','#43e97b','#fa709a','#a18cd1','#fda085','#84fab0','#f6d365','#96fbc4'];
+
+function parseCalc(val) {
+  try {
+    const expr = val.replace(/[^0-9+\-*/().]/g, '');
+    if (!expr) return NaN;
+    const result = Function('"use strict"; return (' + expr + ')')();
+    return typeof result === 'number' && isFinite(result) ? result : NaN;
+  } catch { return NaN; }
+}
+
+function previewCalc() {
+  const val = document.getElementById('expAmount').value;
+  const el = document.getElementById('calcPreview');
+  const result = parseCalc(val);
+  const hasOp = /[+\-*/]/.test(val);
+  if (hasOp && !isNaN(result) && result > 0) {
+    el.textContent = '= ' + fmt(result) + ' บาท';
+  } else {
+    el.textContent = '';
+  }
+}
+
+function fmt(n) {
+  return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+let members = [];
+let expenses = [];
+
+function memberColor(name) {
+  const i = members.indexOf(name) % COLORS.length;
+  return COLORS[i >= 0 ? i : 0];
+}
+
+function initials(name) {
+  return name.slice(0, 2).toUpperCase();
+}
+
+// ===== STEP 1 =====
+function addMember() {
+  const val = document.getElementById('memberInput').value.trim();
+  if (!val) return;
+  if (members.includes(val)) { alert('มีชื่อนี้แล้ว'); return; }
+  members.push(val);
+  document.getElementById('memberInput').value = '';
+  renderMembers();
+}
+
+function removeMember(name) {
+  members = members.filter(m => m !== name);
+  renderMembers();
+}
+
+function renderMembers() {
+  const el = document.getElementById('memberList');
+  el.innerHTML = members.map(m => `
+    <span class="tag">
+      <span style="display:inline-block;width:20px;height:20px;border-radius:50%;background:${memberColor(m)}"></span>
+      ${m}
+      <span class="remove" onclick="removeMember('${m}')">✕</span>
+    </span>`).join('');
+  document.getElementById('nextBtn1').disabled = members.length < 2;
+}
+
+// ===== STEP 2 =====
+function renderPayerSelect() {
+  const sel = document.getElementById('expPayer');
+  sel.innerHTML = members.map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
+function renderSplitCheckboxes() {
+  const el = document.getElementById('splitCheckboxes');
+  el.innerHTML = members.map(m => `
+    <label class="checkbox-label" id="lbl_${CSS.escape(m)}">
+      <input type="checkbox" value="${m}" onchange="updateCheckStyle('${m}')" checked />
+      <span style="display:inline-block;width:22px;height:22px;border-radius:50%;background:${memberColor(m)};flex-shrink:0"></span>
+      ${m}
+    </label>`).join('');
+  members.forEach(m => updateCheckStyle(m));
+}
+
+function updateCheckStyle(name) {
+  const lbl = document.getElementById('lbl_' + CSS.escape(name));
+  if (!lbl) return;
+  const cb = lbl.querySelector('input');
+  lbl.classList.toggle('checked', cb.checked);
+}
+
+function selectAll(val) {
+  document.querySelectorAll('#splitCheckboxes input[type=checkbox]').forEach(cb => {
+    cb.checked = val;
+    updateCheckStyle(cb.value);
+  });
+}
+
+let editingId = null;
+
+function addExpense() {
+  const name = document.getElementById('expName').value.trim();
+  const amount = parseCalc(document.getElementById('expAmount').value);
+  const payer = document.getElementById('expPayer').value;
+  const split = [...document.querySelectorAll('#splitCheckboxes input:checked')].map(c => c.value);
+  const isDiscount = document.getElementById('isDiscount').checked;
+
+  if (!name) { alert('กรุณากรอกชื่อรายการ'); return; }
+  if (!amount || amount <= 0) { alert('กรุณากรอกจำนวนเงิน'); return; }
+  if (split.length === 0) { alert('กรุณาเลือกอย่างน้อย 1 คนที่หาร'); return; }
+
+  if (editingId !== null) {
+    const idx = expenses.findIndex(e => e.id === editingId);
+    if (idx !== -1) expenses[idx] = { id: editingId, name, amount, payer, split, isDiscount };
+    editingId = null;
+    document.getElementById('addExpBtn').textContent = '+ เพิ่มรายการ';
+    document.getElementById('addExpBtn').style.background = '';
+    document.getElementById('formCard').style.borderColor = '';
+  } else {
+    expenses.push({ id: Date.now(), name, amount, payer, split, isDiscount });
+  }
+
+  document.getElementById('expName').value = '';
+  document.getElementById('expAmount').value = '';
+  document.getElementById('isDiscount').checked = false;
+  updateDiscountStyle();
+  selectAll(true);
+  renderExpenseList();
+}
+
+function editExpense(id) {
+  const e = expenses.find(x => x.id === id);
+  if (!e) return;
+  editingId = id;
+
+  document.getElementById('expName').value = e.name;
+  document.getElementById('expAmount').value = e.amount;
+  document.getElementById('expPayer').value = e.payer;
+  document.getElementById('isDiscount').checked = e.isDiscount;
+  updateDiscountStyle();
+
+  document.querySelectorAll('#splitCheckboxes input[type=checkbox]').forEach(cb => {
+    cb.checked = e.split.includes(cb.value);
+    updateCheckStyle(cb.value);
+  });
+
+  const btn = document.getElementById('addExpBtn');
+  btn.textContent = '💾 บันทึกการแก้ไข';
+  btn.style.background = '#ed8936';
+
+  document.getElementById('formCard').style.border = '2px solid #ed8936';
+  document.getElementById('formCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function removeExpense(id) {
+  if (editingId === id) {
+    editingId = null;
+    document.getElementById('expName').value = '';
+    document.getElementById('expAmount').value = '';
+    document.getElementById('addExpBtn').textContent = '+ เพิ่มรายการ';
+    document.getElementById('addExpBtn').style.background = '';
+    document.getElementById('formCard').style.border = '';
+    updateDiscountStyle();
+    selectAll(true);
+  }
+  expenses = expenses.filter(e => e.id !== id);
+  renderExpenseList();
+}
+
+function renderExpenseList() {
+  const el = document.getElementById('expenseList');
+  if (expenses.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📝</div><div>ยังไม่มีรายการ</div></div>`;
+  } else {
+    el.innerHTML = expenses.map(e => {
+      const perHead = (e.amount / e.split.length).toFixed(2);
+      const discountStyle = e.isDiscount ? 'border-color:#9ae6b4;background:#f0fff4' : '';
+      const amountColor = e.isDiscount ? '#38a169' : '#667eea';
+      const amountPrefix = e.isDiscount ? '−' : '';
+      const badge = e.isDiscount ? '<span style="background:#c6f6d5;color:#276749;font-size:0.75rem;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px">🏷️ ส่วนลด</span>' : '';
+      return `<div class="expense-item" style="${discountStyle}">
+        <div class="expense-header">
+          <div>
+            <div class="expense-name">${e.name}${badge}</div>
+            <div class="expense-meta">${e.isDiscount ? `หาร ${e.split.length} คน (คนละ ${Number(perHead).toLocaleString('th')} บาท)` : `จ่ายโดย: <strong>${e.payer}</strong> · หาร ${e.split.length} คน (คนละ ${Number(perHead).toLocaleString('th')} บาท)`}</div>
+            <div class="expense-split">หารกับ: ${e.split.join(', ')}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="expense-amount" style="color:${amountColor}">${amountPrefix}${e.amount.toLocaleString('th')} ฿</span>
+            <button class="btn btn-outline" style="padding:6px 10px;font-size:0.8rem" onclick="editExpense(${e.id})">✏️</button>
+            <button class="btn btn-danger" style="padding:6px 10px;font-size:0.8rem" onclick="removeExpense(${e.id})">ลบ</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('nextBtn2').disabled = expenses.length === 0;
+}
+
+// ===== STEP 3 =====
+function calcSummary() {
+  const balance = {};
+  members.forEach(m => balance[m] = 0);
+
+  expenses.forEach(e => {
+    const share = e.amount / e.split.length;
+    if (e.isDiscount) {
+      e.split.forEach(m => balance[m] += share);
+    } else {
+      balance[e.payer] += e.amount;
+      e.split.forEach(m => balance[m] -= share);
+    }
+  });
+
+  return balance;
+}
+
+function calcSettlements(balance) {
+  const debtors = [], creditors = [];
+  Object.entries(balance).forEach(([name, bal]) => {
+    if (bal > 0.01) creditors.push({ name, amount: bal });
+    else if (bal < -0.01) debtors.push({ name, amount: -bal });
+  });
+  creditors.sort((a, b) => b.amount - a.amount);
+  debtors.sort((a, b) => b.amount - a.amount);
+
+  const settlements = [];
+  let i = 0, j = 0;
+  const c = creditors.map(x => ({ ...x }));
+  const d = debtors.map(x => ({ ...x }));
+  while (i < c.length && j < d.length) {
+    const amt = Math.min(c[i].amount, d[j].amount);
+    settlements.push({ from: d[j].name, to: c[i].name, amount: amt });
+    c[i].amount -= amt;
+    d[j].amount -= amt;
+    if (c[i].amount < 0.01) i++;
+    if (d[j].amount < 0.01) j++;
+  }
+  return settlements;
+}
+
+function getTripName() {
+  return document.getElementById('tripName').value.trim() || 'trip';
+}
+
+function renderSummary() {
+  const balance = calcSummary();
+  const settlements = calcSettlements(balance);
+  const total = expenses.reduce((s, e) => s + e.amount, 0);
+  const tripName = getTripName();
+
+  let html = `
+  <div class="card" style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;text-align:center;padding:18px">
+    <div style="font-size:0.85rem;opacity:0.85;margin-bottom:4px">💸 สรุปค่าใช้จ่ายทริป</div>
+    <div style="font-size:1.5rem;font-weight:700">${tripName || '—'}</div>
+  </div>
+  <div class="stat-row">
+    <div class="stat-card"><div class="label">รายการทั้งหมด</div><div class="value">${expenses.length}</div></div>
+    <div class="stat-card"><div class="label">ค่าใช้จ่ายรวม</div><div class="value">${total.toLocaleString('th')} ฿</div></div>
+    <div class="stat-card"><div class="label">จำนวนสมาชิก</div><div class="value">${members.length} คน</div></div>
+  </div>
+
+  <div class="card">
+    <h2>📊 ยอดสุทธิแต่ละคน</h2>
+    <table class="summary-table">
+      <thead><tr><th>ชื่อ</th><th>จ่ายไปทั้งหมด</th><th>ส่วนแบ่งที่ต้องรับผิดชอบ</th><th>ยอดสุทธิ</th></tr></thead>
+      <tbody>`;
+
+  members.forEach(m => {
+    const paid = expenses.filter(e => e.payer === m && !e.isDiscount).reduce((s, e) => s + e.amount, 0);
+    const owed = expenses.reduce((s, e) => (!e.isDiscount && e.split.includes(m)) ? s + e.amount / e.split.length : s, 0);
+    const net = balance[m];
+    const netClass = net > 0.01 ? 'negative' : net < -0.01 ? 'positive' : 'zero';
+    const netText = net > 0.01 ? `+${fmt(net)} (ได้คืน)` : net < -0.01 ? `${fmt(net)} (ต้องจ่าย)` : 'เสมอ';
+    html += `<tr>
+      <td><span style="display:inline-flex;align-items:center;gap:6px">
+        <span style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${memberColor(m)}"></span>
+        ${m}
+      </span></td>
+      <td>${fmt(paid)} ฿</td>
+      <td>${fmt(owed)} ฿</td>
+      <td class="${netClass}">${netText}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+
+  if (settlements.length > 0) {
+    html += `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2 style="margin:0">💰 วิธีโอนเงินคืน (Settlement)</h2>
+        <button class="btn btn-outline" style="font-size:0.8rem;padding:6px 12px" onclick="toggleProxyMode()">🔀 ฝากโอน</button>
+      </div>
+      <div id="proxyPanel" style="display:none;background:#f7f8ff;border-radius:10px;padding:14px;margin-bottom:14px;border:2px solid #e0e7ff">
+        <div style="font-size:0.85rem;font-weight:600;color:#4a5568;margin-bottom:10px">เลือกว่าใครจะฝากให้ใครโอนแทน</div>
+        <div id="proxyRows"></div>
+        <button class="btn btn-primary" style="margin-top:10px;width:100%" onclick="applyProxy()">คำนวณใหม่</button>
+      </div>
+      <div id="settlementList"></div>
+    </div>`;
+    window._baseSettlements = settlements;
+    window._proxyMap = {};
+  } else {
+    html += `<div class="card"><div class="empty-state"><div class="icon">🎉</div><div>ทุกคนเสมอกันพอดี ไม่ต้องโอนเงิน!</div></div></div>`;
+  }
+
+  // Expense detail
+  html += `<div class="card"><h2>📋 รายการทั้งหมด</h2>`;
+  expenses.forEach(e => {
+    const perHead = (e.amount / e.split.length).toFixed(2);
+    html += `<div class="expense-item">
+      <div class="expense-header">
+        <div>
+          <div class="expense-name">${e.name}</div>
+          <div class="expense-meta">จ่ายโดย: <strong>${e.payer}</strong> · หาร ${e.split.length} คน (คนละ ${Number(perHead).toLocaleString('th')} บาท)</div>
+          <div class="expense-split">หารกับ: ${e.split.join(', ')}</div>
+        </div>
+        <span class="expense-amount">${e.amount.toLocaleString('th')} ฿</span>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  document.getElementById('summaryContent').innerHTML = html;
+  if (settlements.length > 0) renderSettlementList(settlements);
+}
+
+function updateDiscountStyle() {
+  const cb = document.getElementById('isDiscount');
+  const lbl = document.getElementById('discountLabel');
+  const btn = document.getElementById('addExpBtn');
+  const payerSection = document.getElementById('payerSection');
+  if (cb.checked) {
+    lbl.style.borderColor = '#48bb78';
+    lbl.style.background = '#f0fff4';
+    btn.textContent = '+ เพิ่มส่วนลด';
+    btn.style.background = '#48bb78';
+    payerSection.style.display = 'none';
+  } else {
+    lbl.style.borderColor = '#e2e8f0';
+    lbl.style.background = '';
+    btn.textContent = '+ เพิ่มรายการ';
+    btn.style.background = '';
+    payerSection.style.display = '';
+  }
+}
+
+function dot(name, size) {
+  return `<span style="display:inline-block;width:${size}px;height:${size}px;border-radius:50%;background:${memberColor(name)};flex-shrink:0"></span>`;
+}
+
+function renderSettlementList(list) {
+  const el = document.getElementById('settlementList');
+  if (!el) return;
+  el.innerHTML = list.map(s => `
+    <div class="settlement-item">
+      ${dot(s.from, 30)} <strong>${s.from}</strong>
+      <span class="arrow">→</span>
+      ${dot(s.to, 30)} <strong>${s.to}</strong>
+      <span class="settlement-amount">${fmt(s.amount)} ฿</span>
+    </div>`).join('');
+}
+
+function toggleProxyMode() {
+  const panel = document.getElementById('proxyPanel');
+  const isHidden = panel.style.display === 'none';
+  panel.style.display = isHidden ? '' : 'none';
+  if (isHidden) renderProxyRows();
+}
+
+function renderProxyRows() {
+  const base = window._baseSettlements || [];
+  // find debtors (people who need to pay)
+  const debtors = [...new Set(base.map(s => s.from))];
+  const el = document.getElementById('proxyRows');
+  el.innerHTML = debtors.map(debtor => {
+    const targets = base.filter(s => s.from === debtor).map(s => s.to);
+    const allMembers = members.filter(m => m !== debtor);
+    const current = (window._proxyMap || {})[debtor] || '';
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      ${dot(debtor, 26)} <strong style="min-width:60px">${debtor}</strong>
+      <span style="font-size:0.82rem;color:#718096">ฝากโอนผ่าน</span>
+      <select onchange="window._proxyMap['${debtor}']=this.value" style="border:2px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-size:0.85rem;font-family:inherit;flex:1;min-width:120px">
+        <option value="">— ไม่ฝาก (โอนเอง) —</option>
+        ${allMembers.map(m => `<option value="${m}" ${current===m?'selected':''}>${m}</option>`).join('')}
+      </select>
+    </div>`;
+  }).join('');
+}
+
+function applyProxy() {
+  const proxy = window._proxyMap || {};
+  const base = window._baseSettlements || [];
+
+  // Build new transaction list by redirecting through proxy
+  const txMap = {};
+  const addTx = (from, to, amt) => {
+    if (from === to) return;
+    const key = `${from}|||${to}`;
+    txMap[key] = (txMap[key] || 0) + amt;
+  };
+
+  base.forEach(s => {
+    const via = proxy[s.from];
+    if (via && via !== s.to) {
+      addTx(s.from, via, s.amount);  // debtor pays proxy
+      addTx(via, s.to, s.amount);    // proxy pays original creditor
+    } else {
+      addTx(s.from, s.to, s.amount);
+    }
+  });
+
+  const newList = Object.entries(txMap)
+    .filter(([, amt]) => amt > 0.01)
+    .map(([key, amt]) => {
+      const [from, to] = key.split('|||');
+      return { from, to, amount: amt };
+    });
+
+  renderSettlementList(newList.length ? newList : base);
+  document.getElementById('proxyPanel').style.display = 'none';
+}
+
+// ===== EXPORT =====
+async function saveAsImage() {
+  const el = document.getElementById('summaryContent');
+  const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#f0f4f8', useCORS: true });
+  const link = document.createElement('a');
+  link.download = `${getTripName()}.jpg`;
+  link.href = canvas.toDataURL('image/jpeg', 0.95);
+  link.click();
+}
+
+async function saveAsPDF() {
+  const el = document.getElementById('summaryContent');
+  const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#f0f4f8', useCORS: true });
+  const imgData = canvas.toDataURL('image/jpeg', 0.95);
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width / 2, canvas.height / 2] });
+  pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width / 2, canvas.height / 2);
+  pdf.save(`${getTripName()}.pdf`);
+}
+
+// ===== NAVIGATION =====
+function goStep(n) {
+  [1,2,3].forEach(i => {
+    document.getElementById('step'+i).style.display = i === n ? '' : 'none';
+    const tab = document.getElementById('tab'+i);
+    tab.classList.toggle('active', i === n);
+  });
+  if (n === 2) {
+    renderPayerSelect();
+    renderSplitCheckboxes();
+    renderExpenseList();
+    document.getElementById('tab2').disabled = false;
+  }
+  if (n === 3) {
+    renderSummary();
+    document.getElementById('tab3').disabled = false;
+  }
+}
+
+// Init
+renderMembers();
+</script>
+</body>
+</html>
