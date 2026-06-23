@@ -138,6 +138,21 @@
 
   .badge { display: inline-block; background: #667eea; color: white; border-radius: 20px; padding: 1px 8px; font-size: 0.75rem; margin-left: 6px; }
 
+  .split-toggle { display:flex; border:2px solid #e2e8f0; border-radius:8px; overflow:hidden; margin-bottom:10px; }
+  .split-toggle button { flex:1; padding:9px; border:none; background:white; cursor:pointer; font-size:0.85rem; font-family:inherit; transition:all 0.15s; font-weight:500; }
+  .split-toggle button.active { background:#667eea; color:white; font-weight:700; }
+
+  .custom-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .custom-row .dot { width:26px; height:26px; border-radius:50%; flex-shrink:0; }
+  .custom-row input { flex:1; padding:8px 12px; }
+  .custom-total { font-size:0.82rem; margin-top:4px; font-weight:600; }
+
+  .fixcost-item { border:2px solid #fbd38d; background:#fffaf0; border-radius:10px; padding:12px; margin-bottom:8px; }
+  .fixcost-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+  .fixcost-name { font-weight:600; }
+  .fixcost-meta { font-size:0.8rem; color:#718096; margin-top:3px; }
+  .fixcost-amount { font-weight:700; color:#dd6b20; white-space:nowrap; }
+
   @media (max-width: 480px) {
     .stat-card { min-width: 100px; }
     .expense-header { flex-direction: column; }
@@ -203,13 +218,23 @@
       </div>
 
       <div class="form-section">
-        <label class="form-label">หารกับใครบ้าง?</label>
-        <div class="select-all-row">
-          <button class="link-btn" onclick="selectAll(true)">เลือกทั้งหมด</button>
-          &nbsp;|&nbsp;
-          <button class="link-btn" onclick="selectAll(false)">ล้าง</button>
+        <label class="form-label">วิธีหาร</label>
+        <div class="split-toggle">
+          <button id="btnEqualSplit" class="active" onclick="setSplitType('equal')">หารเท่า</button>
+          <button id="btnCustomSplit" onclick="setSplitType('custom')">กำหนดเองเป็นบาท</button>
         </div>
-        <div class="checkbox-grid" id="splitCheckboxes"></div>
+        <div id="equalSplitSection">
+          <div class="select-all-row">
+            <button class="link-btn" onclick="selectAll(true)">เลือกทั้งหมด</button>
+            &nbsp;|&nbsp;
+            <button class="link-btn" onclick="selectAll(false)">ล้าง</button>
+          </div>
+          <div class="checkbox-grid" id="splitCheckboxes"></div>
+        </div>
+        <div id="customSplitSection" style="display:none">
+          <div id="customAmountRows"></div>
+          <div class="custom-total" id="customTotal"></div>
+        </div>
       </div>
 
       <div class="form-section" style="margin-top:4px">
@@ -223,6 +248,29 @@
     </div>
 
     <div id="expenseList"></div>
+
+    <div class="card" id="fixCostCard" style="display:none">
+      <h2>⭐ Fix Cost</h2>
+      <div class="form-section">
+        <label class="form-label">ชื่อ (ไม่บังคับ)</label>
+        <input type="text" id="fcName" placeholder="เช่น ค่าน้ำมันรถ" />
+      </div>
+      <div class="form-section">
+        <label class="form-label">จำนวนเงิน (บาท)</label>
+        <input type="text" id="fcAmount" placeholder="0" inputmode="decimal" oninput="previewFcCalc()" />
+        <div id="fcCalcPreview" style="font-size:0.82rem;color:#dd6b20;margin-top:5px;min-height:18px"></div>
+      </div>
+      <div class="form-section">
+        <label class="form-label">ใครออก Fix Cost?</label>
+        <select id="fcContributor"></select>
+      </div>
+      <div class="form-section">
+        <label class="form-label">นำไปหักรายการไหนบ้าง?</label>
+        <div id="fcExpenseCheckboxes"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;background:#dd6b20" onclick="addFixCost()">+ เพิ่ม Fix Cost</button>
+    </div>
+    <div id="fixCostList"></div>
 
     <div class="nav-row">
       <button class="btn btn-outline" onclick="goStep(1)">← ย้อนกลับ</button>
@@ -274,6 +322,8 @@ function fmt(n) {
 
 let members = [];
 let expenses = [];
+let fixCosts = [];
+let splitType = 'equal';
 
 function memberColor(name) {
   const i = members.indexOf(name) % COLORS.length;
@@ -334,6 +384,118 @@ function updateCheckStyle(name) {
   lbl.classList.toggle('checked', cb.checked);
 }
 
+// ===== SPLIT TYPE =====
+function setSplitType(type) {
+  splitType = type;
+  document.getElementById('btnEqualSplit').classList.toggle('active', type === 'equal');
+  document.getElementById('btnCustomSplit').classList.toggle('active', type === 'custom');
+  document.getElementById('equalSplitSection').style.display = type === 'equal' ? '' : 'none';
+  document.getElementById('customSplitSection').style.display = type === 'custom' ? '' : 'none';
+  if (type === 'custom') renderCustomAmountRows();
+}
+
+function renderCustomAmountRows() {
+  const amount = parseCalc(document.getElementById('expAmount').value) || 0;
+  const el = document.getElementById('customAmountRows');
+  el.innerHTML = members.map(m => `
+    <div class="custom-row">
+      <span class="dot" style="background:${memberColor(m)}"></span>
+      <span style="min-width:70px;font-size:0.9rem">${m}</span>
+      <input type="text" inputmode="decimal" placeholder="0" value=""
+        id="ca_${CSS.escape(m)}" oninput="updateCustomTotal()" />
+    </div>`).join('');
+  updateCustomTotal();
+}
+
+function updateCustomTotal() {
+  const amount = parseCalc(document.getElementById('expAmount').value) || 0;
+  const total = members.reduce((s, m) => {
+    const v = parseCalc(document.getElementById('ca_' + CSS.escape(m))?.value || '0') || 0;
+    return s + v;
+  }, 0);
+  const el = document.getElementById('customTotal');
+  const diff = amount - total;
+  if (Math.abs(diff) < 0.01) {
+    el.style.color = '#38a169';
+    el.textContent = `✓ รวม ${fmt(total)} ฿ — ครบพอดี`;
+  } else if (total > amount) {
+    el.style.color = '#e53e3e';
+    el.textContent = `รวม ${fmt(total)} ฿ — เกิน ${fmt(total - amount)} ฿`;
+  } else {
+    el.style.color = '#dd6b20';
+    el.textContent = `รวม ${fmt(total)} ฿ — ยังขาด ${fmt(amount - total)} ฿`;
+  }
+}
+
+// ===== FIX COST =====
+function previewFcCalc() {
+  const val = document.getElementById('fcAmount').value;
+  const el = document.getElementById('fcCalcPreview');
+  const result = parseCalc(val);
+  const hasOp = /[+\-*/]/.test(val);
+  el.textContent = (hasOp && !isNaN(result) && result > 0) ? `= ${fmt(result)} บาท` : '';
+}
+
+function renderFcExpenseCheckboxes() {
+  const el = document.getElementById('fcExpenseCheckboxes');
+  if (expenses.filter(e => !e.isDiscount).length === 0) {
+    el.innerHTML = '<div style="color:#a0aec0;font-size:0.85rem">ยังไม่มีรายการ</div>';
+    return;
+  }
+  el.innerHTML = expenses.filter(e => !e.isDiscount).map(e => `
+    <label class="checkbox-label" id="fclbl_${e.id}" style="margin-bottom:6px">
+      <input type="checkbox" value="${e.id}" onchange="this.closest('label').classList.toggle('checked',this.checked)" />
+      ${e.name} <span style="color:#667eea;font-weight:700;margin-left:4px">${e.amount.toLocaleString('th')} ฿</span>
+    </label>`).join('');
+}
+
+function renderFcContributorSelect() {
+  const sel = document.getElementById('fcContributor');
+  sel.innerHTML = members.map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
+function addFixCost() {
+  const name = document.getElementById('fcName').value.trim() || 'Fix Cost';
+  const amount = parseCalc(document.getElementById('fcAmount').value);
+  const contributor = document.getElementById('fcContributor').value;
+  const appliedTo = [...document.querySelectorAll('#fcExpenseCheckboxes input:checked')].map(c => Number(c.value));
+
+  if (!amount || amount <= 0) { alert('กรุณากรอกจำนวนเงิน'); return; }
+  if (appliedTo.length === 0) { alert('กรุณาเลือกอย่างน้อย 1 รายการ'); return; }
+
+  fixCosts.push({ id: Date.now(), name, amount, contributor, appliedTo });
+  document.getElementById('fcName').value = '';
+  document.getElementById('fcAmount').value = '';
+  document.getElementById('fcCalcPreview').textContent = '';
+  document.querySelectorAll('#fcExpenseCheckboxes input').forEach(cb => { cb.checked = false; cb.closest('label').classList.remove('checked'); });
+  renderFixCostList();
+}
+
+function removeFixCost(id) {
+  fixCosts = fixCosts.filter(fc => fc.id !== id);
+  renderFixCostList();
+}
+
+function renderFixCostList() {
+  const el = document.getElementById('fixCostList');
+  if (fixCosts.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = fixCosts.map(fc => {
+    const expNames = fc.appliedTo.map(id => expenses.find(e => e.id === id)?.name || '').filter(Boolean).join(', ');
+    return `<div class="fixcost-item">
+      <div class="fixcost-header">
+        <div>
+          <div class="fixcost-name">⭐ ${fc.name}</div>
+          <div class="fixcost-meta">ออกโดย: <strong>${fc.contributor}</strong> · หักจาก: ${expNames}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="fixcost-amount">${fc.amount.toLocaleString('th')} ฿</span>
+          <button class="btn btn-danger" style="padding:6px 10px;font-size:0.8rem" onclick="removeFixCost(${fc.id})">ลบ</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function selectAll(val) {
   document.querySelectorAll('#splitCheckboxes input[type=checkbox]').forEach(cb => {
     cb.checked = val;
@@ -347,30 +509,51 @@ function addExpense() {
   const name = document.getElementById('expName').value.trim();
   const amount = parseCalc(document.getElementById('expAmount').value);
   const payer = document.getElementById('expPayer').value;
-  const split = [...document.querySelectorAll('#splitCheckboxes input:checked')].map(c => c.value);
   const isDiscount = document.getElementById('isDiscount').checked;
 
   if (!name) { alert('กรุณากรอกชื่อรายการ'); return; }
   if (!amount || amount <= 0) { alert('กรุณากรอกจำนวนเงิน'); return; }
-  if (split.length === 0) { alert('กรุณาเลือกอย่างน้อย 1 คนที่หาร'); return; }
+
+  let split = [], customSplit = false, customAmounts = {};
+
+  if (splitType === 'custom') {
+    members.forEach(m => {
+      const v = parseCalc(document.getElementById('ca_' + CSS.escape(m))?.value || '0') || 0;
+      if (v > 0) { customAmounts[m] = v; split.push(m); }
+    });
+    const total = Object.values(customAmounts).reduce((s, v) => s + v, 0);
+    if (split.length === 0) { alert('กรุณากรอกจำนวนเงินอย่างน้อย 1 คน'); return; }
+    if (Math.abs(total - amount) > 0.5) { alert(`ยอดรวมไม่ตรง (${fmt(total)} ฿ ≠ ${fmt(amount)} ฿)`); return; }
+    customSplit = true;
+  } else {
+    split = [...document.querySelectorAll('#splitCheckboxes input:checked')].map(c => c.value);
+    if (split.length === 0) { alert('กรุณาเลือกอย่างน้อย 1 คนที่หาร'); return; }
+  }
+
+  const entry = { id: editingId ?? Date.now(), name, amount, payer, split, isDiscount, customSplit, customAmounts };
 
   if (editingId !== null) {
     const idx = expenses.findIndex(e => e.id === editingId);
-    if (idx !== -1) expenses[idx] = { id: editingId, name, amount, payer, split, isDiscount };
+    if (idx !== -1) expenses[idx] = entry;
     editingId = null;
     document.getElementById('addExpBtn').textContent = '+ เพิ่มรายการ';
     document.getElementById('addExpBtn').style.background = '';
-    document.getElementById('formCard').style.borderColor = '';
+    document.getElementById('formCard').style.border = '';
   } else {
-    expenses.push({ id: Date.now(), name, amount, payer, split, isDiscount });
+    entry.id = Date.now();
+    expenses.push(entry);
   }
 
   document.getElementById('expName').value = '';
   document.getElementById('expAmount').value = '';
+  document.getElementById('calcPreview').textContent = '';
   document.getElementById('isDiscount').checked = false;
   updateDiscountStyle();
+  setSplitType('equal');
   selectAll(true);
   renderExpenseList();
+  renderFcExpenseCheckboxes();
+  document.getElementById('fixCostCard').style.display = expenses.filter(e => !e.isDiscount).length > 0 ? '' : 'none';
 }
 
 function editExpense(id) {
@@ -427,8 +610,8 @@ function renderExpenseList() {
         <div class="expense-header">
           <div>
             <div class="expense-name">${e.name}${badge}</div>
-            <div class="expense-meta">${e.isDiscount ? `หาร ${e.split.length} คน (คนละ ${Number(perHead).toLocaleString('th')} บาท)` : `จ่ายโดย: <strong>${e.payer}</strong> · หาร ${e.split.length} คน (คนละ ${Number(perHead).toLocaleString('th')} บาท)`}</div>
-            <div class="expense-split">หารกับ: ${e.split.join(', ')}</div>
+            <div class="expense-meta">${e.isDiscount ? `หาร ${e.split.length} คน (คนละ ${Number(perHead).toLocaleString('th')} บาท)` : e.customSplit ? `จ่ายโดย: <strong>${e.payer}</strong> · กำหนดเองเป็นบาท` : `จ่ายโดย: <strong>${e.payer}</strong> · หาร ${e.split.length} คน (คนละ ${Number(perHead).toLocaleString('th')} บาท)`}</div>
+            <div class="expense-split">${e.customSplit ? Object.entries(e.customAmounts).map(([m,v]) => `${m}: ${fmt(v)} ฿`).join(' · ') : `หารกับ: ${e.split.join(', ')}`}</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <span class="expense-amount" style="color:${amountColor}">${amountPrefix}${e.amount.toLocaleString('th')} ฿</span>
@@ -448,13 +631,25 @@ function calcSummary() {
   members.forEach(m => balance[m] = 0);
 
   expenses.forEach(e => {
-    const share = e.amount / e.split.length;
     if (e.isDiscount) {
+      const share = e.amount / e.split.length;
       e.split.forEach(m => balance[m] += share);
-    } else {
-      balance[e.payer] += e.amount;
-      e.split.forEach(m => balance[m] -= share);
+      return;
     }
+    if (e.customSplit) {
+      balance[e.payer] += e.amount;
+      Object.entries(e.customAmounts).forEach(([m, amt]) => { balance[m] -= amt; });
+      return;
+    }
+    // equal split — apply fix cost deductions
+    const expFixCosts = fixCosts.filter(fc => fc.appliedTo.includes(e.id));
+    const totalFix = expFixCosts.reduce((s, fc) => s + fc.amount, 0);
+    const effAmt = Math.max(0, e.amount - totalFix);
+    const share = effAmt / e.split.length;
+
+    balance[e.payer] += e.amount;
+    e.split.forEach(m => balance[m] -= share);
+    expFixCosts.forEach(fc => balance[fc.contributor] -= fc.amount);
   });
 
   return balance;
@@ -547,6 +742,24 @@ function renderSummary() {
     window._proxyMap = {};
   } else {
     html += `<div class="card"><div class="empty-state"><div class="icon">🎉</div><div>ทุกคนเสมอกันพอดี ไม่ต้องโอนเงิน!</div></div></div>`;
+  }
+
+  // Fix cost detail
+  if (fixCosts.length > 0) {
+    html += `<div class="card"><h2>⭐ Fix Cost ที่ใช้</h2>`;
+    fixCosts.forEach(fc => {
+      const expNames = fc.appliedTo.map(id => expenses.find(e => e.id === id)?.name || '').filter(Boolean).join(', ');
+      html += `<div class="fixcost-item">
+        <div class="fixcost-header">
+          <div>
+            <div class="fixcost-name">${fc.name}</div>
+            <div class="fixcost-meta">ออกโดย: <strong>${fc.contributor}</strong> · หักจาก: ${expNames}</div>
+          </div>
+          <span class="fixcost-amount">${fmt(fc.amount)} ฿</span>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
   }
 
   // Expense detail
@@ -716,6 +929,10 @@ function goStep(n) {
     renderPayerSelect();
     renderSplitCheckboxes();
     renderExpenseList();
+    renderFcContributorSelect();
+    renderFcExpenseCheckboxes();
+    renderFixCostList();
+    document.getElementById('fixCostCard').style.display = expenses.filter(e => !e.isDiscount).length > 0 ? '' : 'none';
     document.getElementById('tab2').disabled = false;
   }
   if (n === 3) {
