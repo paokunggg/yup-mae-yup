@@ -708,7 +708,16 @@ function renderSummary() {
 
   members.forEach(m => {
     const paid = expenses.filter(e => e.payer === m && !e.isDiscount).reduce((s, e) => s + e.amount, 0);
-    const owed = expenses.reduce((s, e) => (!e.isDiscount && e.split.includes(m)) ? s + e.amount / e.split.length : s, 0);
+    const owed = expenses.reduce((s, e) => {
+      if (e.isDiscount) return s;
+      if (e.customSplit) return s + (e.customAmounts[m] || 0);
+      if (!e.split.includes(m)) return s;
+      const expFix = fixCosts.filter(fc => fc.appliedTo.includes(e.id));
+      const totalFix = expFix.reduce((x, fc) => x + fc.amount, 0);
+      const effAmt = Math.max(0, e.amount - totalFix);
+      const myFix = expFix.filter(fc => fc.contributor === m).reduce((x, fc) => x + fc.amount, 0);
+      return s + effAmt / e.split.length + myFix;
+    }, 0);
     const net = balance[m];
     const netClass = net > 0.01 ? 'negative' : net < -0.01 ? 'positive' : 'zero';
     const netText = net > 0.01 ? `+${fmt(net)} (ได้คืน)` : net < -0.01 ? `${fmt(net)} (ต้องจ่าย)` : 'เสมอ';
@@ -765,13 +774,19 @@ function renderSummary() {
   // Expense detail
   html += `<div class="card"><h2>📋 รายการทั้งหมด</h2>`;
   expenses.forEach(e => {
-    const perHead = (e.amount / e.split.length).toFixed(2);
+    const expFix = fixCosts.filter(fc => fc.appliedTo.includes(e.id));
+    const totalFix = expFix.reduce((s, fc) => s + fc.amount, 0);
+    const effAmt = Math.max(0, e.amount - totalFix);
+    const perHead = e.customSplit
+      ? Object.entries(e.customAmounts).map(([m, v]) => `${m}: ${fmt(v)} ฿`).join(' · ')
+      : `คนละ ${fmt(effAmt / e.split.length)} ฿${totalFix > 0 ? ` (หลังหัก fix cost ${fmt(totalFix)} ฿)` : ''}`;
+    const splitLabel = e.customSplit ? 'กำหนดเองเป็นบาท' : `หาร ${e.split.length} คน`;
     html += `<div class="expense-item">
       <div class="expense-header">
         <div>
           <div class="expense-name">${e.name}</div>
-          <div class="expense-meta">จ่ายโดย: <strong>${e.payer}</strong> · หาร ${e.split.length} คน (คนละ ${Number(perHead).toLocaleString('th')} บาท)</div>
-          <div class="expense-split">หารกับ: ${e.split.join(', ')}</div>
+          <div class="expense-meta">จ่ายโดย: <strong>${e.payer}</strong> · ${splitLabel}</div>
+          <div class="expense-split">${perHead}</div>
         </div>
         <span class="expense-amount">${e.amount.toLocaleString('th')} ฿</span>
       </div>
