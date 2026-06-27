@@ -644,8 +644,8 @@ function calcSummary() {
     // equal split — apply fix cost deductions
     const expFixCosts = fixCosts.filter(fc => fc.appliedTo.includes(e.id));
     const totalFix = expFixCosts.reduce((s, fc) => s + fc.amount, 0);
-    const effAmt = Math.max(0, e.amount - totalFix);
-    const share = effAmt / e.split.length;
+    const netEff = e.amount - totalFix; // negative = excess returned to split members
+    const share = e.split.length > 0 ? netEff / e.split.length : 0;
 
     balance[e.payer] += e.amount;
     e.split.forEach(m => balance[m] -= share);
@@ -714,9 +714,10 @@ function renderSummary() {
       if (!e.split.includes(m)) return s;
       const expFix = fixCosts.filter(fc => fc.appliedTo.includes(e.id));
       const totalFix = expFix.reduce((x, fc) => x + fc.amount, 0);
-      const effAmt = Math.max(0, e.amount - totalFix);
+      const netEff = e.amount - totalFix;
+      const share = netEff / e.split.length; // negative = gets money back
       const myFix = expFix.filter(fc => fc.contributor === m).reduce((x, fc) => x + fc.amount, 0);
-      return s + effAmt / e.split.length + myFix;
+      return s + share + myFix;
     }, 0);
     const net = balance[m];
     const netClass = net > 0.01 ? 'negative' : net < -0.01 ? 'positive' : 'zero';
@@ -777,12 +778,14 @@ function renderSummary() {
     const expFix = fixCosts.filter(fc => fc.appliedTo.includes(e.id));
     const totalFix = expFix.reduce((s, fc) => s + fc.amount, 0);
     const effAmt = Math.max(0, e.amount - totalFix);
-    const sharePerHead = effAmt / e.split.length;
+    const netEff = e.amount - totalFix;
+    const sharePerHead = e.split.length > 0 ? netEff / e.split.length : 0;
     const perHead = e.customSplit
       ? Object.entries(e.customAmounts).map(([m, v]) => `${m}: ${fmt(v)} ฿`).join(' · ')
       : e.split.map(m => {
           const myFix = fixCosts.filter(fc => fc.appliedTo.includes(e.id) && fc.contributor === m).reduce((s, fc) => s + fc.amount, 0);
-          return `${m}: ${fmt(sharePerHead + myFix)} ฿`;
+          const total = sharePerHead + myFix;
+          return total < 0 ? `${m}: ได้คืน ${fmt(Math.abs(total))} ฿` : `${m}: ${fmt(total)} ฿`;
         }).join(' · ');
     const splitLabel = e.customSplit ? 'กำหนดเองเป็นบาท' : `หาร ${e.split.length} คน`;
     html += `<div class="expense-item">
