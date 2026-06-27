@@ -777,9 +777,13 @@ function renderSummary() {
     const expFix = fixCosts.filter(fc => fc.appliedTo.includes(e.id));
     const totalFix = expFix.reduce((s, fc) => s + fc.amount, 0);
     const effAmt = Math.max(0, e.amount - totalFix);
+    const sharePerHead = effAmt / e.split.length;
     const perHead = e.customSplit
       ? Object.entries(e.customAmounts).map(([m, v]) => `${m}: ${fmt(v)} ฿`).join(' · ')
-      : `คนละ ${fmt(effAmt / e.split.length)} ฿${totalFix > 0 ? ` (หลังหัก fix cost ${fmt(totalFix)} ฿)` : ''}`;
+      : e.split.map(m => {
+          const myFix = fixCosts.filter(fc => fc.appliedTo.includes(e.id) && fc.contributor === m).reduce((s, fc) => s + fc.amount, 0);
+          return `${m}: ${fmt(sharePerHead + myFix)} ฿`;
+        }).join(' · ');
     const splitLabel = e.customSplit ? 'กำหนดเองเป็นบาท' : `หาร ${e.split.length} คน`;
     html += `<div class="expense-item">
       <div class="expense-header">
